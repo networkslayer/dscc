@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install Poetry
+      run: |
+        curl -sSL https://install.python-poetry.org | python3 -
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+    - name: Install dependencies
+      run: |
+        poetry config virtualenvs.create false
+        poetry install --no-root
+
+    - name: Validate detection index
+      run: poetry run python scripts/validate_index_yaml.py
+
+    - name: Run CLI test
+      run: poetry run dscc list_apps
+
+    - name: Build detections.json
+      run: python frontend/build.py
+
+    - name: Detect changes to detections.json
+      id: changes
+      run: |
+        git config --global user.name "dscc-bot"
+        git config --global user.email "dscc@app"
+        git add frontend/static/detections.json
+        git diff --cached --quiet || echo "changed=true" >> $GITHUB_OUTPUT
+
+    - name: Commit and push updated detections.json
+      if: steps.changes.outputs.changed == 'true'
+      run: |
+        git commit -m "🤖 Update detections.json after merge"
+        git push origin main

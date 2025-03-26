@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}DSCC{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="http://localhost:8000/">DSCC</a>
+    <div class="collapse navbar-collapse">
+      <ul class="navbar-nav">
+        <li class="nav-item"><a class="nav-link" href="http://localhost:8000/">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="http://localhost:8000/upload_form">Submit</a></li>
+        <li class="nav-item"><a class="nav-link" href="http://localhost:9000/login" id="login-link">Login</a></li>
+        <li class="nav-item"><a class="nav-link d-none" href="http://localhost:9000/submissions" id="admin-panel-link">Admin Panel</a></li>
+        <li class="nav-item"><a class="nav-link d-none" href="#" id="logout-link">Logout</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  {% block content %}{% endblock %}
+</div>
+
+<script src="/static/logout.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    window.addEventListener("DOMContentLoaded", () => {
+      const token = localStorage.getItem("dscc_token");
+      if (token) {
+        document.getElementById("login-link")?.classList.add("d-none");
+        document.getElementById("admin-panel-link")?.classList.remove("d-none");
+        document.getElementById("logout-link")?.classList.remove("d-none");
+      }
+    });
+  </script>
+  
+</body>
+</html>

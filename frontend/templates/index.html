@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Home - DSCC{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h2 id="detections">Detection Table</h2>
+  <table class="table table-striped">
+    <thead>
+    <tr>
+      <th>App</th>
+      <th>Name</th>
+      <th>Description</th>
+      <th>Source</th>
+      <th>Sourcetype</th>
+      <th>Platform</th>
+    </tr>
+    </thead>
+    <tbody id="detection-table-body">
+    </tbody>
+  </table>
+
+  <hr class="my-5" />
+
+  <h2 id="apps">App Gallery</h2>
+  <div class="row" id="app-cards">
+    <!-- cards inserted here -->
+  </div>
+</div>
+
+<script>
+    const token = localStorage.getItem("dscc_token");
+    const loginLink = document.getElementById("login-link");
+    const adminLink = document.getElementById("admin-link");
+    
+    if (token) {
+        loginLink.textContent = "Logout";
+        loginLink.href = "#";
+        loginLink.addEventListener("click", () => {
+        localStorage.removeItem("dscc_token");
+        window.location.href = "http://localhost:8000";
+        });
+        adminLink.classList.remove("d-none");
+    } else {
+        adminLink.classList.add("d-none");
+    }
+</script>
+<script>
+  fetch("/static/detections.json")
+    .then(res => res.json())
+    .then(data => {
+      const tableBody = document.getElementById('detection-table-body');
+      const appCards = document.getElementById('app-cards');
+      const seenApps = new Set();
+
+      data.forEach(item => {
+        // Table row
+        const row = `<tr>
+          <td>${item.app}</td>
+          <td>${item.name}</td>
+          <td>${item.description}</td>
+          <td>${item.source}</td>
+          <td>${item.sourcetype}</td>
+          <td>${item.platform}</td>
+        </tr>`;
+        tableBody.insertAdjacentHTML('beforeend', row);
+
+        // App cards
+        if (!seenApps.has(item.app)) {
+          seenApps.add(item.app);
+          const card = `
+            <div class="col-md-4 mb-4">
+              <div class="card card-app">
+                <div class="card-body">
+                  <h5 class="card-title">${item.app}</h5>
+                  <p class="card-text">Detection app for ${item.app}</p>
+                  <a href="/download/${item.app}" class="btn btn-primary">Download App</a>
+                </div>
+              </div>
+            </div>`;
+          appCards.insertAdjacentHTML('beforeend', card);
+        }
+      });
+    });
+</script>
+{% endblock %}

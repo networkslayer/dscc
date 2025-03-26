@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Job Status - DSCC{% endblock %}
+
+{% block content %}
+  <h2 class="mb-4">Submission Status</h2>
+  <div id="status-box" class="alert alert-secondary">Loading...</div>
+
+  <script>
+    const jobId = window.location.pathname.split("/").pop();
+
+    async function fetchStatus() {
+      const res = await fetch(`/api/status/${jobId}`);
+      const data = await res.json();
+
+      const box = document.getElementById("status-box");
+      box.className = "alert";
+
+      if (data.status === "success") {
+        box.classList.add("alert-success");
+      } else if (data.status === "failed") {
+        box.classList.add("alert-danger");
+      } else {
+        box.classList.add("alert-warning");
+      }
+
+      box.innerHTML = `<strong>Status:</strong> ${data.status}<br><strong>Note:</strong> ${data.note}`;
+    }
+
+    fetchStatus();
+    setInterval(fetchStatus, 3000);
+  </script>
+{% endblock %}

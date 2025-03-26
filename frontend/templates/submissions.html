@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Submissions - DSCC{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Detection App Submissions</h2>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <input id="search-box" class="form-control me-3 w-50" placeholder="Search by user, filename, status...">
+  <select id="sort-select" class="form-select w-25">
+    <option value="latest">Sort by: Latest</option>
+    <option value="status">Sort by: Status</option>
+    <option value="user">Sort by: User</option>
+  </select>
+</div>
+
+<div id="loading-indicator" class="alert alert-info">🔄 Loading latest submissions...</div>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Job ID</th>
+      <th>User</th>
+      <th>Filename</th>
+      <th>Status</th>
+      <th>Note</th>
+      <th>Submitted</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody id="submission-table-body"></tbody>
+</table>
+
+<script>
+  const token = localStorage.getItem("dscc_token");
+  let previousStatuses = {};
+  let allSubmissions = [];
+
+  function approveJob(id) {
+    console.log("Approving job:", id);
+    console.log("Sending request to /approve/" + id); 
+    fetch(`/approve/${id}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+    })
+        .then(response => {
+        if (!response.ok) {
+            throw new Error(`Approve failed: ${response.status}`);
+        }
+        return response.json();
+        })
+        .then(data => {
+        console.log("Approved:", data);
+        loadSubmissions();
+        })
+        .catch(err => {
+        console.error("❌ Approve error:", err);
+        });
+  }
+
+
+  function rejectJob(id) {
+    fetch(`/reject/${id}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` }
+    }).then(() => loadSubmissions());
+  }
+
+  function formatDate(timestamp) {
+    if (!timestamp) return "-";
+    const date = new Date(Date.parse(timestamp));
+    return isNaN(date) ? "-" : date.toLocaleString();
+  }
+
+
+  function renderTable(filtered) {
+    const table = document.getElementById("submission-table-body");
+    table.innerHTML = "";
+
+    filtered.forEach(job => {
+      const statusClass = job.status === "success" ? "table-success" : 
+                          job.status === "failed" ? "table-danger" : 
+                          job.status !== previousStatuses[job.id] ? "table-warning" : "";
+      previousStatuses[job.id] = job.status;
+
+      const actions = (job.status === "approved" || job.status === "rejected") ?
+        `<span class="badge bg-secondary">${job.status}</span>` :
+        `<div class="d-flex flex-wrap gap-1">
+          <a href="/status/${job.id}" class="btn btn-sm btn-outline-primary">View</a>
+          <button class="btn btn-sm btn-success" onclick="approveJob('${job.id}')">Approve</button>
+          <button class="btn btn-sm btn-danger" onclick="rejectJob('${job.id}')">Reject</button>
+        </div>`;
+
+      const submitted = job.submitted_at ? formatDate(job.submitted_at) : "-";
+
+      const row = `<tr class="${statusClass}">
+        <td>${job.id}</td>
+        <td>${job.user}</td>
+        <td>${job.filename}</td>
+        <td>${job.status}</td>
+        <td>${job.note}</td>
+        <td>${submitted}</td>
+        <td>${actions}</td>
+      </tr>`;
+      table.insertAdjacentHTML("beforeend", row);
+    });
+  }
+
+  function loadSubmissions() {
+    document.getElementById("loading-indicator").style.display = "block";
+    fetch("/api/submissions", {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    .then(res => res.json())
+    .then(data => {
+      allSubmissions = data;
+      filterAndRender();
+      document.getElementById("loading-indicator").style.display = "none";
+    })
+    .catch(err => {
+      console.error("Failed to load submissions:", err);
+      document.getElementById("loading-indicator").textContent = "⚠️ Failed to load submissions.";
+      document.getElementById("loading-indicator").className = "alert alert-danger";
+    });
+  }
+
+  function filterAndRender() {
+    const searchTerm = document.getElementById("search-box").value.toLowerCase();
+    const sortBy = document.getElementById("sort-select").value;
+
+    let filtered = allSubmissions.filter(job =>
+      job.id.toLowerCase().includes(searchTerm) ||
+      job.user.toLowerCase().includes(searchTerm) ||
+      job.filename.toLowerCase().includes(searchTerm) ||
+      job.status.toLowerCase().includes(searchTerm)
+    );
+
+    if (sortBy === "status") {
+      filtered.sort((a, b) => a.status.localeCompare(b.status));
+    } else if (sortBy === "user") {
+      filtered.sort((a, b) => a.user.localeCompare(b.user));
+    } else if (sortBy === "latest") {
+      filtered.sort((a, b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
+    }
+
+    renderTable(filtered);
+  }
+
+  document.getElementById("search-box").addEventListener("input", filterAndRender);
+  document.getElementById("sort-select").addEventListener("change", filterAndRender);
+
+  loadSubmissions();
+  setInterval(loadSubmissions, 5000);
+</script>
+{% endblock %}

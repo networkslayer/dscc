@@ -1,0 +1,10 @@
+[
+  {
+    "app": "databricks",
+    "name": "",
+    "description": "",
+    "source": "databricks",
+    "sourcetype": "access_audit",
+    "platform": "databricks"
+  }
+]
