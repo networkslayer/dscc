@@ -1,0 +1,25 @@
+author: Derek King
+created: 2025-03-24
+modified: 2025-03-24
+version: 1
+uuid: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+source: databricks
+sourcetype: access_audit
+platform: databricks
+detection:
+  name: access_token_created
+  description: Detects when a new access token is created.
+  fidelity: high
+  category: access
+  objective:
+    - Detect when a new access token is created.
+  false_positives:
+    - A new access token was created by a legitimate user.
+  severity: high
+  validation:
+    - The user who created the access token is a legitimate user.
+    - The user who created the access token has a legitimate reason to create the access token.
+tests:
+  - data: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+
