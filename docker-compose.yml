@@ -15,13 +15,10 @@ services:
     volumes:
       - .:/app
       - ./submission_store:/app/submission_store
-
   spark-api:
     build:
       context: .
       dockerfile: docker/Dockerfile.spark
-      args:
-        GITHUB_TOKEN: ${GITHUB_TOKEN}
     container_name: dscc-spark-api
     command: poetry run uvicorn spark.main:app --host 0.0.0.0 --port 9000
     ports:
@@ -32,11 +29,9 @@ services:
       - .:/app
       - ./submission_store:/app/submission_store
     environment:
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
-      - GH_TOKEN=${GH_TOKEN}
-      - GITHUB_REPO=${GITHUB_REPO}
-    env_file:
-      - .env
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+      GH_TOKEN: ${GH_TOKEN}
+      GITHUB_REPO: ${GITHUB_REPO}
 
   worker:
     build:

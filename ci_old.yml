@@ -1,22 +1,20 @@
-name: CI/CD Pipeline
+name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
-    branches: [main]
+    branches: [ main ]
 
 jobs:
-  # ----------------------------------
-  # 🧪 Pull Request Tests
-  # ----------------------------------
-  pr-tests:
-    if: github.event_name == 'pull_request'
+  test:
     runs-on: ubuntu-latest
 
     services:
       redis:
         image: redis:7
+        # ports:
+        #  - 6379:6379
 
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -48,8 +46,25 @@ jobs:
       - name: Run CLI test
         run: poetry run dscc list_apps
 
-      - name: Build detections.json
-        run: python frontend/build.py
+      - name: Detect changes and rebuild index
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "🛠️ Running production rebuild after merge"
+          python frontend/build.py
+
+      - name: Detect changes to detections.json
+        id: changes
+        run: |
+          git config --global user.name "dscc-bot"
+          git config --global user.email "dscc@app"
+          git add frontend/static/detections.json
+          git diff --cached --quiet || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit and push updated detections.json
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git commit -m "🤖 Update detections.json after merge"
+          git push origin main
 
       - name: Start Spark API container
         run: docker compose -f docker-compose.yml up -d spark-api
@@ -58,6 +73,7 @@ jobs:
         run: |
           echo "⏳ Waiting for Spark API to start..."
           for i in {1..10}; do
+            curl -s http://localhost:9000/status/test || true
             if curl -s -f http://localhost:9000; then
               echo "✅ Spark API is ready!"
               break
@@ -88,50 +104,4 @@ jobs:
           echo "🚀 Running detection tests..."
           curl -H "Authorization: Bearer $TOKEN" -X POST $SPARK_API_HOST/run-all
 
-  # ----------------------------------
-  # 🚀 Post-Merge Production Step
-  # ----------------------------------
-  post-merge:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Install dependencies
-        run: |
-          poetry config virtualenvs.create false
-          poetry install --no-root
-
-      - name: Rebuild detections.json
-        run: |
-          echo "🛠️ Rebuilding detections index..."
-          python frontend/build.py
-
-      - name: Detect changes to detections.json
-        id: changes
-        run: |
-          git config --global user.name "dscc-bot"
-          git config --global user.email "dscc@app"
-          git add frontend/static/detections.json
-          git diff --cached --quiet || echo "changed=true" >> $GITHUB_OUTPUT
-
-      - name: Commit and push updated detections.json
-        if: steps.changes.outputs.changed == 'true'
-        run: |
-          git commit -m "🤖 Update detections.json after merge"
-          git push origin main
-
-      - name: Build Spark container
-        run: docker compose -f docker-compose.yml build spark
