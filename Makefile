@@ -64,8 +64,7 @@ serve:
 
 # Trigger full detection run through the Spark API
 run-all:
-	curl -u $$SPARK_API_USER:$$SPARK_API_PASS -X POST $${SPARK_API_HOST:-http://localhost:9000}/run-all
-
+	curl -u $$SPARK_API_USER:$$SPARK_API_PASS -X POST http://localhost:9000/run-all
 
 test-pr:
 	@echo "🧪 Generating test app submission"
