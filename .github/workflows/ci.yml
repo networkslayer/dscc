@@ -16,62 +16,58 @@ jobs:
         ports:
           - 6379:6379
 
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      GITHUB_REPO: github.com/networkslayer/dscc.git
+
     steps:
-    - name: Checkout PR contents
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-        ref: ${{ github.event.pull_request.head.sha }}
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-    - name: Install Poetry
-      run: |
-        curl -sSL https://install.python-poetry.org | python3 -
-        echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Install dependencies
+        run: |
+          poetry config virtualenvs.create false
+          poetry install --no-root
 
-    - name: Install dependencies
-      run: |
-        poetry config virtualenvs.create false
-        poetry install --no-root
+      - name: Validate detection index
+        run: poetry run python scripts/validate_index_yaml.py
 
-    - name: Validate detection index
-      run: poetry run python scripts/validate_index_yaml.py
+      - name: Run CLI test
+        run: poetry run dscc list_apps
 
-    - name: Run CLI test
-      run: poetry run dscc list_apps
+      - name: Detect changes and rebuild index
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "🛠️ Running production rebuild after merge"
+          python frontend/build.py
 
-    - name: Detect changes and rebuild index
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      run: |
-        echo "🛠️ Running production rebuild after merge"
-        python frontend/build.py
+      - name: Detect changes to detections.json
+        id: changes
+        run: |
+          git config --global user.name "dscc-bot"
+          git config --global user.email "dscc@app"
+          git add frontend/static/detections.json
+          git diff --cached --quiet || echo "changed=true" >> $GITHUB_OUTPUT
 
+      - name: Commit and push updated detections.json
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git commit -m "🤖 Update detections.json after merge"
+          git push origin main
 
-    - name: Detect changes to detections.json
-      id: changes
-      run: |
-        git config --global user.name "dscc-bot"
-        git config --global user.email "dscc@app"
-        git add frontend/static/detections.json
-        git diff --cached --quiet || echo "changed=true" >> $GITHUB_OUTPUT
+      - name: Start Spark API container
+        run: docker compose -f docker-compose.yml up -d spark-api
 
-    - name: Commit and push updated detections.json
-      if: steps.changes.outputs.changed == 'true'
-      run: |
-        git commit -m "🤖 Update detections.json after merge"
-        git push origin main
-
-    - name: Start Spark API container
-      run: docker compose -f docker-compose.yml up -d spark-api
-
-    - name: Call Spark API to run all tests
-      env:
-        SPARK_API_USER: admin
-        SPARK_API_PASS: changeme
-        SPARK_API_HOST: http://localhost:9000
-      run: make run-all
+      - name: Call Spark API to run all tests
+        run: make run-all
