@@ -239,26 +239,31 @@ async def approve(job_id: str, user: str = Depends(verify_token)):
 
     # extract_zip_flat(zip_path, target_dir, app_name)
 
-    # Unzip to temp, copy only app/<name> into branch:
+    # Create temp extract directory
     extract_path = Path("/tmp") / f"{job_id}_extract"
     if extract_path.exists():
         shutil.rmtree(extract_path)
     extract_path.mkdir(parents=True)
 
+    # Extract all contents of the zip
     with ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall(extract_path)
 
-    # Find correct app dir inside zip (heuristic match)
-    inner_dirs = [d for d in extract_path.rglob("*") if d.is_dir() and d.name == app_name]
-    if not inner_dirs:
-        raise HTTPException(status_code=400, detail="Could not locate app directory inside ZIP")
-    submitted_app_path = inner_dirs[0]
+    # Expect exactly one top-level directory
+    top_level_dirs = [p for p in extract_path.iterdir() if p.is_dir()]
+    if len(top_level_dirs) != 1:
+        raise HTTPException(status_code=400, detail="Zip must contain exactly one top-level directory")
 
-    # Move to apps/<app_name> in working tree
+    submitted_app_path = top_level_dirs[0]
     final_app_path = Path(f"apps/{app_name}")
+
+    # Remove any existing app folder
     if final_app_path.exists():
         shutil.rmtree(final_app_path)
+
+    # Copy submitted app into apps/<app_name>
     shutil.copytree(submitted_app_path, final_app_path)
+
 
     macosx_path = Path("apps") / "__MACOSX"
     if macosx_path.exists() and macosx_path.is_dir():
