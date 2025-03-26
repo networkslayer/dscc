@@ -61,3 +61,13 @@ jobs:
       run: |
         git commit -m "🤖 Update detections.json after merge"
         git push origin main
+
+    - name: Start Spark API container
+      run: docker compose -f docker-compose.yml up -d spark-api
+
+    - name: Call Spark API to run all tests
+      env:
+        SPARK_API_USER: admin
+        SPARK_API_PASS: changeme
+        SPARK_API_HOST: http://localhost:9000
+      run: make run-all
