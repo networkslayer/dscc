@@ -81,6 +81,17 @@ jobs:
             sleep 3
           done
 
+      - name: Install jq (JSON parser)
+        run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Call Spark API to run all tests
-        run: make run-all
+      - name: Call Spark API to run all tests (authenticated)
+        env:
+          SPARK_API_USER: ${{ secrets.SPARK_API_USER }}
+          SPARK_API_PASS: ${{ secrets.SPARK_API_PASS }}
+          SPARK_API_HOST: http://localhost:9000
+        run: |
+          echo "🔐 Requesting access token..."
+          TOKEN=$(curl -s -X POST -d "username=$SPARK_API_USER&password=$SPARK_API_PASS" $SPARK_API_HOST/token | jq -r .access_token)
+          echo "🚀 Running detection tests..."
+          curl -H "Authorization: Bearer $TOKEN" -X POST $SPARK_API_HOST/run-all
+
