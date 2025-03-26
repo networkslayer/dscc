@@ -17,8 +17,12 @@ jobs:
           - 6379:6379
 
     steps:
-    - name: Checkout repo
+    - name: Checkout PR contents
       uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        ref: ${{ github.event.pull_request.head.sha }}
+
 
     - name: Set up Python
       uses: actions/setup-python@v4
