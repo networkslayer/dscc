@@ -134,4 +134,4 @@ jobs:
           git push origin main
 
       - name: Build Spark container
-        run: docker compose -f docker-compose.yml build spark
+        run: docker compose -f docker-compose.yml build spark-api
