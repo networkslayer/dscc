@@ -41,8 +41,12 @@ jobs:
     - name: Run CLI test
       run: poetry run dscc list_apps
 
-    - name: Build detections.json
-      run: python frontend/build.py
+    - name: Detect changes and rebuild index
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: |
+        echo "🛠️ Running production rebuild after merge"
+        python frontend/build.py
+
 
     - name: Detect changes to detections.json
       id: changes
